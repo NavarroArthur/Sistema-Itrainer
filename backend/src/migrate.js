@@ -13,16 +13,22 @@ function run() {
     const sql = fs.readFileSync(full, 'utf8');
     console.log(`Executing migration: ${file}`);
     try {
-      // SQLite pode executar múltiplas statements se separadas por ;
-      // Mas vamos executar uma por vez para melhor controle
-      const statements = sql
+      // SQLite precisa executar statements uma por vez
+      // Remove comentários e divide por ponto e vírgula
+      const cleanSql = sql
+        .split('\n')
+        .filter(line => !line.trim().startsWith('--'))
+        .join('\n');
+      
+      const statements = cleanSql
         .split(';')
         .map(s => s.trim())
-        .filter(s => s.length > 0 && !s.startsWith('--'));
+        .filter(s => s.length > 0 && !s.match(/^\s*$/));
       
+      // Executa cada statement separadamente
       for (const statement of statements) {
         if (statement) {
-          db.exec(statement + ';');
+          db.exec(statement);
         }
       }
       console.log(`Applied: ${file}`);

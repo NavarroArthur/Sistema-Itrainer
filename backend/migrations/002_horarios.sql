@@ -10,13 +10,3 @@ CREATE TABLE IF NOT EXISTS horarios_profissionais (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (profissional_id, dia_semana, hora_inicio, hora_fim)
 );
-
--- Trigger para updated_at (SQLite usa triggers diferentes)
-CREATE TRIGGER IF NOT EXISTS trg_set_updated_at_horarios
-AFTER UPDATE ON horarios_profissionais
-FOR EACH ROW
-BEGIN
-  UPDATE horarios_profissionais 
-  SET updated_at = CURRENT_TIMESTAMP 
-  WHERE horario_id = NEW.horario_id;
-END;
