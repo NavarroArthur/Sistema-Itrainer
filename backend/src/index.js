@@ -3,6 +3,7 @@ dotenv.config();
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { checkConnection, pool } = require('./db');
 
 const app = express();
@@ -12,19 +13,9 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
 app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
 
-// Raiz: orientação rápida
-app.get('/', (req, res) => {
-  res.json({
-    message: 'iTrainer API',
-    status_url: '/api/status',
-    docs: [
-      { path: '/api/status', method: 'GET', desc: 'Saúde da API e conexão com DB' },
-      { path: '/api/profissionais', method: 'GET', desc: 'Lista profissionais' },
-      { path: '/api/horarios?profissional_id=<id>', method: 'GET', desc: 'Lista horários por profissional' },
-      { path: '/api/agendamentos?profissional_id=<id>', method: 'GET', desc: 'Lista agendamentos por filtros' }
-    ]
-  });
-});
+// Serve arquivos estáticos do frontend buildado
+const buildPath = path.join(__dirname, '..', '..', 'build');
+app.use(express.static(buildPath));
 
 // Health/status route: verifica API e DB
 app.get('/api/status', async (req, res) => {
@@ -76,6 +67,17 @@ app.use('/api', avaliacoesRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', profissionaisRoutes);
 app.use('/api', horariosRoutes);
+
+// Serve o React app para todas as rotas que não são da API
+app.get('*', (req, res) => {
+  // Se a requisição não começa com /api, serve o index.html do React
+  if (!req.path.startsWith('/api')) {
+    const indexPath = path.join(buildPath, 'index.html');
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).json({ error: 'Not found' });
+  }
+});
 
 if (require.main === module) {
   app.listen(PORT, () => {

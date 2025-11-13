@@ -57,12 +57,12 @@ Projeto iTrainer com frontend React e backend Node/Express + SQLite (banco de da
 
 4. **Configure o Build Command**:
    ```
-   cd backend && npm install
+   npm install; cd backend; npm install; cd ..; npm run build
    ```
 
 5. **Configure o Start Command**:
    ```
-   cd backend && npm run migrate && npm start
+   cd backend; npm run migrate; npm start
    ```
 
 6. **Observações para Render**:

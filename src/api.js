@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// Em produção, usa URL relativa. Em desenvolvimento, usa localhost
+const baseURL = process.env.NODE_ENV === 'production' 
+  ? '/api' 
+  : 'http://localhost:3010/api';
+
 const api = axios.create({
-  baseURL: 'http://localhost:3010/api',
+  baseURL,
 });
 
 api.interceptors.request.use((config) => {
