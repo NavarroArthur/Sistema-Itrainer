@@ -1,0 +1,30 @@
+{
+  "name": "itrainer-api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "migrate": "node src/migrate.js",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "better-sqlite3": "^11.6.0",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/backend/tests/**/*.test.js"
+    ],
+    "verbose": true
+  }
+}
