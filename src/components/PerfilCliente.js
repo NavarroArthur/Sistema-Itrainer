@@ -1,61 +1,57 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
+import api from '../api';
+import { Link } from 'react-router-dom';
 import './PerfilCliente.css';
 
+function safeParseUser() {
+  try {
+    const raw = localStorage.getItem('itrainer_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 const PerfilCliente = () => {
-  const [user, setUser] = useState(null);
-  const [aluno, setAluno] = useState(undefined);
-  const [aulas] = useState(...);
-  const [fotoPreview, setFotoPreview] = useState(null);
-  const inputFotoRef = useRef(null);
+  const [user] = useState(safeParseUser);
+  const [perfil, setPerfil] = useState(null);
+  const [aulas, setAulas] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const userData = localStorage.getItem('itrainer_user');
-    if (userData) {
-      const userObj = JSON.parse(userData);
-      setUser(userObj);
-      // Buscar dados completos do aluno
-      const allUsers = JSON.parse(localStorage.getItem('itrainer_users') || '[]');
-      const alunoData = allUsers.find(u => u.email === userObj.email && u.tipo === 'client');
-      if (alunoData) {
-        setAluno(alunoData);
-        if (alunoData.foto) {
-          setFotoPreview(alunoData.foto);
-        }
+    if (!user?.id) { setLoading(false); return; }
+
+    const fetchData = async () => {
+      try {
+        // Busca perfil completo do cliente via API
+        const [perfilRes, agendRes] = await Promise.all([
+          api.get(`/clientes/${user.id}`),
+          api.get('/agendamentos', { params: { cliente_id: user.id } }),
+        ]);
+
+        setPerfil(perfilRes.data?.cliente || null);
+
+        const agendamentos = agendRes.data?.agendamentos || [];
+        const mapped = agendamentos.map((a) => ({
+          id: a.agendamento_id,
+          tipo: 'Aula',
+          data: new Date(a.data_hora).toLocaleDateString('pt-BR'),
+          horario: new Date(a.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          status: a.status,
+          profissional_id: a.profissional_id,
+        }));
+        setAulas(mapped);
+      } catch (err) {
+        console.error('Erro ao carregar perfil do cliente:', err);
+      } finally {
+        setLoading(false);
       }
-    }
-  }, []);
+    };
 
-  const handleFotoClick = () => {
-    inputFotoRef.current?.click();
-  };
+    fetchData();
+  }, [user]);
 
-  const handleFotoChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotoPreview(reader.result);
-        salvarFoto(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const salvarFoto = (fotoBase64) => {
-    const allUsers = JSON.parse(localStorage.getItem('itrainer_users') || '[]');
-    const userIndex = allUsers.findIndex(u => u.email === user.email && u.tipo === 'client');
-    
-    if (userIndex !== -1) {
-      allUsers[userIndex] = {
-        ...allUsers[userIndex],
-        foto: fotoBase64
-      };
-      localStorage.setItem('itrainer_users', JSON.stringify(allUsers));
-      setAluno(allUsers[userIndex]);
-    }
-  };
-
-  // Calcular idade a partir da data de nascimento
+  // Calcula idade a partir da data de nascimento
   const calcularIdade = (dataNascimento) => {
     if (!dataNascimento) return null;
     const hoje = new Date();
@@ -68,14 +64,18 @@ const PerfilCliente = () => {
     return idade;
   };
 
-  const idade = aluno ? calcularIdade(aluno.data_nascimento) : null;
+  const idade = perfil ? calcularIdade(perfil.data_nascimento) : null;
 
-  if (!user) {
+  const statusLabel = (status) => {
+    const map = { PENDENTE: '🕐 Pendente', CONFIRMADO: '✅ Confirmado', CANCELADO: '❌ Cancelado', CONCLUIDO: '🏁 Concluído' };
+    return map[status] || status;
+  };
+
+  if (loading) {
     return (
       <main className="perfil-container">
         <div className="perfil-header">
-          <h1>Perfil do Cliente</h1>
-          <p>Usuário não encontrado. Faça login novamente.</p>
+          <p>Carregando perfil...</p>
         </div>
       </main>
     );
@@ -84,31 +84,21 @@ const PerfilCliente = () => {
   return (
     <main className="perfil-container">
       <div className="perfil-header">
-        <div className="perfil-foto-container" onClick={handleFotoClick}>
+        <div className="perfil-foto-container">
           <div className="perfil-foto">
-            {fotoPreview ? (
-              <img src={fotoPreview} alt={`Foto de ${user.name}`} />
-            ) : (
-              <div className="perfil-foto-placeholder">👤</div>
-            )}
-            <div className="foto-overlay">
-              <span>Clique para alterar a foto</span>
-            </div>
+            <div className="perfil-foto-placeholder">👤</div>
           </div>
-          <input
-            type="file"
-            ref={inputFotoRef}
-            className="foto-input"
-            accept="image/*"
-            onChange={handleFotoChange}
-          />
         </div>
         <div className="perfil-info">
-          <h1 className="perfil-nome">{user.name}</h1>
+          <h1 className="perfil-nome">{user?.name}</h1>
           <div className="perfil-detalhes">
             {idade && <p>{idade} anos</p>}
-            {aluno?.localizacao && <p>{aluno.localizacao}</p>}
-            <p>{user.email}</p>
+            {(perfil?.localizacao) && <p>{perfil.localizacao}</p>}
+            <p>{user?.email}</p>
+            {perfil?.nivel && <p>Nível: {perfil.nivel.charAt(0).toUpperCase() + perfil.nivel.slice(1)}</p>}
+            {perfil?.objetivos?.length > 0 && (
+              <p>Objetivos: {perfil.objetivos.join(', ')}</p>
+            )}
           </div>
         </div>
       </div>
@@ -116,19 +106,26 @@ const PerfilCliente = () => {
       <div className="perfil-aulas">
         <h2>Minhas Aulas</h2>
         {aulas.length > 0 ? (
-          aulas.map((aula, index) => (
-            <div key={index} className="aula-item">
+          aulas.map((aula) => (
+            <div key={aula.id} className="aula-item">
               <div className="aula-info">
                 <h3>{aula.tipo}</h3>
-                <p className="aula-data">{aula.data}</p>
+                <p className="aula-data">{aula.data} às {aula.horario}</p>
               </div>
-              <p className="aula-professor">Prof. {aula.professor}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span>{statusLabel(aula.status)}</span>
+                <Link className="btn" to={`/profissional/${aula.profissional_id}`}>
+                  Ver Prof.
+                </Link>
+              </div>
             </div>
           ))
         ) : (
           <div className="sem-aulas">
             <p>Você ainda não tem aulas registradas.</p>
-            <p>Em breve você poderá agendar aulas com nossos profissionais!</p>
+            <Link className="btn btn-primary" to="/profissionais">
+              Encontrar um personal trainer
+            </Link>
           </div>
         )}
       </div>
@@ -136,4 +133,4 @@ const PerfilCliente = () => {
   );
 };
 
-export default PerfilCliente; 
+export default PerfilCliente;
