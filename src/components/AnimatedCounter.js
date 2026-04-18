@@ -7,10 +7,10 @@ const AnimatedCounter = ({ value, duration = 2000, suffix = '', prefix = '', dec
     const counterRef = useRef(null);
 
     useEffect(() => {
-  const node = counterRef.current; 
-  const observer = new IntersectionObserver(...)
-  observer.observe(node);
-  return () => observer.unobserve(node); 
+      const node = counterRef.current; 
+      const observer = new IntersectionObserver(...)
+      observer.observe(node);
+      return () => observer.unobserve(node); 
 }, [...]);
 
     useEffect(() => {
