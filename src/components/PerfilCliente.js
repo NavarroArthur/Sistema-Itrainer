@@ -4,7 +4,7 @@ import './PerfilCliente.css';
 const PerfilCliente = () => {
   const [user, setUser] = useState(null);
   const [aluno, setAluno] = useState(undefined);
-  const [aulas, setAulas] = useState([]);  // Será implementado posteriormente
+  const [aulas] = useState(...);
   const [fotoPreview, setFotoPreview] = useState(null);
   const inputFotoRef = useRef(null);
 
