@@ -21,116 +21,124 @@ const PainelProfissional = () => {
   const horariosDisponiveis = Array.from({ length: 11 }, (_, i) => `${i + 8}:00`);
 
   useEffect(() => {
-    const userData = localStorage.getItem('itrainer_user');
-    if (userData) {
-      const userObj = JSON.parse(userData);
-      setUser(userObj);
-      const storageEmail = (userObj.email || '').toLowerCase();
-      
-      const allUsers = JSON.parse(localStorage.getItem('itrainer_users') || '[]');
-      const profData = allUsers.find(u => u.email === userObj.email && u.type === 'professional');
-      if (profData) {
-        setProfissional(profData);
-        if (profData.foto) {
-          setFotoPreview(profData.foto);
-        }
+    let raw;
+    try { raw = localStorage.getItem('itrainer_user'); } catch {}
+    if (!raw) return;
 
-        // Carregar horários via API (fallback para localStorage)
-        (async () => {
-          try {
-            if (userObj.id) {
-              const res = await api.get('/horarios', { params: { profissional_id: userObj.id } });
-              const rows = res.data?.horarios || [];
-              const grid = {};
-              diasSemana.forEach(d => { grid[d] = {}; });
-              rows.forEach((r) => {
-                const diaIdx = Number(r.dia_semana);
-                const diaTxt = diasSemana[diaIdx] ?? diasSemana[0];
-                const hInicio = String(r.hora_inicio).slice(0,5);
-                grid[diaTxt][`${hInicio}`] = !!r.ativo;
-              });
-              // Preencher slots não definidos como true por padrão
-              diasSemana.forEach((d) => {
-                horariosDisponiveis.forEach((h) => {
-                  if (typeof grid[d][h] === 'undefined') grid[d][h] = true;
-                });
-              });
-              setHorarios(grid);
-            } else {
-              throw new Error('Sem id de profissional, usando storage.');
-            }
-          } catch (err) {
-            const horariosData = localStorage.getItem(`horarios_${userObj.email}`) || localStorage.getItem(`horarios_${storageEmail}`);
-            if (horariosData) {
-              setHorarios(JSON.parse(horariosData));
-            } else {
-              const horariosIniciais = {};
-              diasSemana.forEach(dia => {
-                horariosIniciais[dia] = {};
-                horariosDisponiveis.forEach(horario => { horariosIniciais[dia][horario] = true; });
-              });
-              setHorarios(horariosIniciais);
-              localStorage.setItem(`horarios_${storageEmail}`, JSON.stringify(horariosIniciais));
-            }
+    let userObj;
+    try { userObj = JSON.parse(raw); } catch { return; }
+    setUser(userObj);
+
+    const loadProfile = async () => {
+      // --- Carrega perfil do profissional via API ---
+      if (userObj.id) {
+        try {
+          const res = await api.get(`/profissionais/${userObj.id}`);
+          const prof = res.data?.profissional;
+          if (prof) {
+            setProfissional(prof);
+            if (prof.foto_url) setFotoPreview(prof.foto_url);
           }
-        })();
-
-        // Carregar solicitações (PENDENTE) e histórico (CONFIRMADO/CANCELADO/CONCLUIDO) via API
-        (async () => {
-          try {
-            if (userObj.id) {
-              const [pend, hist] = await Promise.all([
-                api.get('/agendamentos', { params: { profissional_id: userObj.id, status: 'PENDENTE' } }),
-                api.get('/agendamentos', { params: { profissional_id: userObj.id, status: 'CONFIRMADO,CANCELADO,CONCLUIDO' } }),
-              ]);
-              const toSolic = (pend.data?.agendamentos || []).map(a => ({
-                id: a.agendamento_id,
-                aluno: `Cliente #${a.cliente_id}`,
-                data: new Date(a.data_hora).toLocaleDateString('pt-BR'),
-                horario: new Date(a.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-              }));
-              setSolicitacoes(toSolic);
-              const toHist = (hist.data?.agendamentos || []).map(a => ({
-                aluno: `Cliente #${a.cliente_id}`,
-                data: new Date(a.data_hora).toLocaleString('pt-BR'),
-                horario: '',
-                tipo: 'Aula',
-                status: a.status,
-                timestamp: Date.parse(a.data_hora),
-                dataISO: a.data_hora,
-              }));
-              setHistorico(toHist);
-            } else {
-              throw new Error('Sem id de profissional, usando storage.');
-            }
-          } catch (err) {
-            const solicitacoesData = localStorage.getItem(`solicitacoes_${userObj.email}`) || localStorage.getItem(`solicitacoes_${storageEmail}`);
-            if (solicitacoesData) {
-              setSolicitacoes(JSON.parse(solicitacoesData));
-            }
-            const historicoData = localStorage.getItem(`historico_${userObj.email}`) || localStorage.getItem(`historico_${storageEmail}`);
-            if (historicoData) {
-              setHistorico(JSON.parse(historicoData));
-            }
-          }
-        })();
-
-        // Carregar financeiro e preço/hora
-        const finData = localStorage.getItem(`financeiro_${userObj.email}`) || localStorage.getItem(`financeiro_${storageEmail}`);
-        if (finData) {
-          setFinanceiro(JSON.parse(finData));
-        }
-        const ph = localStorage.getItem(`precoHora_${userObj.email}`) || localStorage.getItem(`precoHora_${storageEmail}`);
-        if (ph) {
-          setPrecoHora(Number(ph));
-        }
-        const planoData = localStorage.getItem(`plano_${userObj.email}`) || localStorage.getItem(`plano_${storageEmail}`);
-        if (planoData) {
-          setPlano(planoData);
+        } catch (err) {
+          console.warn('Não foi possível carregar perfil via API:', err?.message);
         }
       }
-    }
-  }, []);
+
+      // --- Carrega horários via API ---
+      try {
+        if (userObj.id) {
+          const res = await api.get('/horarios', { params: { profissional_id: userObj.id } });
+          const rows = res.data?.horarios || [];
+          const grid = {};
+          diasSemana.forEach(d => { grid[d] = {}; });
+          rows.forEach((r) => {
+            const diaIdx = Number(r.dia_semana);
+            const diaTxt = diasSemana[diaIdx] ?? diasSemana[0];
+            const hInicio = String(r.hora_inicio).slice(0, 5);
+            grid[diaTxt][hInicio] = !!r.ativo;
+          });
+          // Preencher slots não definidos como true por padrão
+          diasSemana.forEach((d) => {
+            horariosDisponiveis.forEach((h) => {
+              if (typeof grid[d][h] === 'undefined') grid[d][h] = true;
+            });
+          });
+          setHorarios(grid);
+        } else {
+          throw new Error('sem id');
+        }
+      } catch {
+        const storageEmail = (userObj.email || '').toLowerCase();
+        let horariosData;
+        try { horariosData = localStorage.getItem(`horarios_${storageEmail}`); } catch {}
+        if (horariosData) {
+          try { setHorarios(JSON.parse(horariosData)); } catch {}
+        } else {
+          const horariosIniciais = {};
+          diasSemana.forEach(dia => {
+            horariosIniciais[dia] = {};
+            horariosDisponiveis.forEach(horario => { horariosIniciais[dia][horario] = true; });
+          });
+          setHorarios(horariosIniciais);
+          try { localStorage.setItem(`horarios_${storageEmail}`, JSON.stringify(horariosIniciais)); } catch {}
+        }
+      }
+
+      // --- Carrega agendamentos via API ---
+      try {
+        if (userObj.id) {
+          const [pend, hist] = await Promise.all([
+            api.get('/agendamentos', { params: { profissional_id: userObj.id, status: 'PENDENTE' } }),
+            api.get('/agendamentos', { params: { profissional_id: userObj.id, status: 'CONFIRMADO,CANCELADO,CONCLUIDO' } }),
+          ]);
+          const toSolic = (pend.data?.agendamentos || []).map(a => ({
+            id: a.agendamento_id,
+            aluno: `Cliente #${a.cliente_id}`,
+            data: new Date(a.data_hora).toLocaleDateString('pt-BR'),
+            horario: new Date(a.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          }));
+          setSolicitacoes(toSolic);
+          const toHist = (hist.data?.agendamentos || []).map(a => ({
+            aluno: `Cliente #${a.cliente_id}`,
+            data: new Date(a.data_hora).toLocaleString('pt-BR'),
+            horario: '',
+            tipo: 'Aula',
+            status: a.status,
+            timestamp: Date.parse(a.data_hora),
+            dataISO: a.data_hora,
+          }));
+          setHistorico(toHist);
+        } else {
+          throw new Error('sem id');
+        }
+      } catch {
+        const storageEmail = (userObj.email || '').toLowerCase();
+        let solicitacoesData, historicoData;
+        try { solicitacoesData = localStorage.getItem(`solicitacoes_${storageEmail}`); } catch {}
+        try { historicoData = localStorage.getItem(`historico_${storageEmail}`); } catch {}
+        if (solicitacoesData) { try { setSolicitacoes(JSON.parse(solicitacoesData)); } catch {} }
+        if (historicoData) { try { setHistorico(JSON.parse(historicoData)); } catch {} }
+      }
+
+      // --- Carrega dados financeiros e configurações do localStorage ---
+      const storageEmail = (userObj.email || '').toLowerCase();
+      try {
+        const finData = localStorage.getItem(`financeiro_${storageEmail}`);
+        if (finData) setFinanceiro(JSON.parse(finData));
+      } catch {}
+      try {
+        const ph = localStorage.getItem(`precoHora_${storageEmail}`);
+        if (ph) setPrecoHora(Number(ph));
+      } catch {}
+      try {
+        const planoData = localStorage.getItem(`plano_${storageEmail}`);
+        if (planoData) setPlano(planoData);
+      } catch {}
+    };
+
+    loadProfile();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const handleFotoClick = () => {
     inputFotoRef.current?.click();
@@ -441,7 +449,7 @@ const PainelProfissional = () => {
             <h1>{user.name}</h1>
             <div className="prof-detalhes">
               <div className="info-list">
-                <div className="info-row"><span className="info-label">Área</span><span className="info-value">{profissional?.area || 'Área não especificada'}</span></div>
+                <div className="info-row"><span className="info-label">Área</span><span className="info-value">{Array.isArray(profissional?.especialidades) ? profissional.especialidades.join(', ') : (profissional?.especialidades || 'Área não especificada')}</span></div>
                 <div className="info-row"><span className="info-label">Email</span><span className="info-value">{user.email}</span></div>
                 <div className="info-row"><span className="info-label">Telefone</span><span className="info-value">{profissional?.telefone || 'Telefone não cadastrado'}</span></div>
                 <div className="info-row"><span className="info-label">Localização</span><span className="info-value">{profissional?.localizacao || 'Localização não cadastrada'}</span></div>
