@@ -7,25 +7,11 @@ const AnimatedCounter = ({ value, duration = 2000, suffix = '', prefix = '', dec
     const counterRef = useRef(null);
 
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting && !isVisible) {
-                    setIsVisible(true);
-                }
-            },
-            { threshold: 0.5 }
-        );
-
-        if (counterRef.current) {
-            observer.observe(counterRef.current);
-        }
-
-        return () => {
-            if (counterRef.current) {
-                observer.unobserve(counterRef.current);
-            }
-        };
-    }, [isVisible]);
+  const node = counterRef.current; 
+  const observer = new IntersectionObserver(...)
+  observer.observe(node);
+  return () => observer.unobserve(node); 
+}, [...]);
 
     useEffect(() => {
         if (!isVisible) return;
