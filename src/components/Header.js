@@ -113,9 +113,9 @@ const Header = () => {
                                     >
                                         {user.type === 'client' ? 'Meu Perfil' : 'Área do Profissional'}
                                     </Link>
-                                    <a href="#" className="btn-logout" onClick={handleLogout}>
+                                    <button className="btn-logout" onClick={handleLogout}>
                                         Sair
-                                    </a>
+                                    </button>
                                 </>
                             ) : (
                                 <Link to="/login" className="btn-login" onClick={closeMenu}>
